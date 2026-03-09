@@ -63,36 +63,45 @@ const PLATFORMS: PlatformDef[] = [
 
 type Props = {
   activePlatform?: Platform
+  variant?: "default" | "lime"
   className?: string
 }
 
-export function PlatformBadges({ activePlatform, className }: Props) {
+export function PlatformBadges({ activePlatform, variant = "default", className }: Props) {
   return (
-    <div className={cn("flex flex-wrap gap-2 justify-center", className)}>
+    <div className={cn("flex flex-wrap gap-2 justify-center", variant === "lime" && "justify-start gap-1.5", className)}>
       {PLATFORMS.map((p) => {
         const isActive =
-          activePlatform === p.id ||
-          (activePlatform === "youtube-playlist" && p.id === "youtube")
+          variant === "default" &&
+          (activePlatform === p.id ||
+            (activePlatform === "youtube-playlist" && p.id === "youtube"))
+        const useLime = variant === "lime"
 
         return (
           <div
             key={p.id}
             className={cn(
-              "platform-badge flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium",
-              "border transition-all duration-300",
+              "platform-badge flex items-center gap-1.5 rounded-full text-xs font-medium border transition-all duration-300",
+              useLime ? "px-2.5 py-1" : "px-3 py-1.5",
             )}
             style={
-              isActive
+              useLime
                 ? {
-                    borderColor: "rgba(190,255,62,0.5)",
-                    background: "rgba(190,255,62,0.08)",
+                    borderColor: "rgba(190,255,62,0.25)",
+                    background: "rgba(190,255,62,0.05)",
                     color: "#BEFF3E",
                   }
-                : {
-                    borderColor: "var(--border)",
-                    background: "var(--surface-2)",
-                    color: "var(--muted-foreground)",
-                  }
+                : isActive
+                  ? {
+                      borderColor: "rgba(190,255,62,0.5)",
+                      background: "rgba(190,255,62,0.08)",
+                      color: "#BEFF3E",
+                    }
+                  : {
+                      borderColor: "var(--border)",
+                      background: "var(--surface-2)",
+                      color: "var(--muted-foreground)",
+                    }
             }
           >
             {p.icon}

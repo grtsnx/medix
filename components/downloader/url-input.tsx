@@ -180,7 +180,7 @@ export function UrlInput({ url, state, platform, error, onChange, onSubmit }: Pr
 
       {/* Hint */}
       {!hasUrl && state === "idle" && (
-        <p className="text-center text-xs text-muted-foreground px-2 font-mono">
+        <p className="text-start text-xs text-muted-foreground px-2 font-mono">
           YouTube · TikTok · Instagram · Facebook · X · Threads · Playlists
         </p>
       )}
