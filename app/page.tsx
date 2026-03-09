@@ -23,28 +23,40 @@ export default function Page() {
       {/* Grid bg */}
       <div className="fixed inset-0 grid-bg pointer-events-none" />
 
-      <div className="relative z-10 grain min-h-screen flex flex-col">
-        {/* ── Hero (landing only), vertically centered when no result ── */}
-        <div className={showResult ? "" : "flex-1 flex flex-col justify-center"}>
+      <div
+        className={
+          showResult && videoInfo
+            ? "relative z-10 grain min-h-screen lg:grid lg:grid-cols-2 lg:gap-x-12 xl:gap-x-16"
+            : "relative z-10 grain min-h-screen flex flex-col"
+        }
+      >
+        {/* ── Hero column ── */}
+        <div
+          className={
+            showResult && videoInfo
+              ? "flex flex-col justify-center"
+              : "flex-1 flex flex-col justify-center"
+          }
+        >
           <LandingHero
-          url={url}
-          state={state}
-          platform={platform}
-          error={error}
-          activeTab={activeTab}
-          showResult={showResult}
-          isPlaylist={isPlaylist}
-          onUrlChange={handleUrlChange}
-          onFetchVideoInfo={fetchVideoInfo}
-          onTabChange={setActiveTab}
+            url={url}
+            state={state}
+            platform={platform}
+            error={error}
+            activeTab={activeTab}
+            showResult={showResult}
+            isPlaylist={isPlaylist}
+            onUrlChange={handleUrlChange}
+            onFetchVideoInfo={fetchVideoInfo}
+            onTabChange={setActiveTab}
             onReset={reset}
           />
         </div>
 
-        {/* ── Result area ── */}
+        {/* ── Result column (desktop: side-by-side; mobile: below) ── */}
         {showResult && videoInfo && (
-          <section className="px-8 pb-10 md:px-16 lg:px-24">
-            <div className="max-w-xl space-y-4">
+          <section className="px-8 pb-10 md:px-16 lg:flex lg:flex-col lg:justify-center lg:px-12 xl:px-16 min-w-0">
+            <div className="max-w-xl space-y-3 lg:max-w-sm min-w-0">
               <VideoResult info={videoInfo} />
 
               {isPlaylist && playlistItems.length > 0 ? (

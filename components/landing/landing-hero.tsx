@@ -1,12 +1,10 @@
 "use client"
 
-import { cn } from "@/lib/utils"
-import { PlatformBadges } from "@/components/downloader/platform-badges"
 import { UrlInput } from "@/components/downloader/url-input"
 
 /**
  * Landing-only hero section. Do not use on other routes.
- * Contains: eyebrow, headline, subtitle, tab switcher, URL input.
+ * Contains: eyebrow, headline, subtitle, URL input.
  */
 interface LandingHeroProps {
   url: string
@@ -39,16 +37,17 @@ export function LandingHero({
     <section className="px-8 pt-4 pb-8 md:px-16 md:pt-6 md:pb-12 lg:px-24">
       <div className="max-w-xl">
 
-        {/* Eyebrow — platform names & logos */}
-        <div className="stagger-1 mb-6">
-          <PlatformBadges variant="lime" className="justify-start" />
+        {/* Eyebrow — brand */}
+        <div className="stagger-1 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold mb-6 lime-badge w-fit">
+          <span className="w-1.5 h-1.5 rounded-full shrink-0 pulse-ring" style={{ background: "#BEFF3E" }} />
+          vidload
         </div>
 
-        {/* Heading — fixed sizes, no clamp */}
-        <h1 className="stagger-2 font-extrabold leading-[1.06] tracking-tight mb-4">
-          <span className="block text-[2.5rem] md:text-[3.5rem] text-muted-foreground/50">Paste a link,</span>
+        {/* Heading — larger, fits without wrapping */}
+        <h1 className="stagger-2 font-extrabold leading-[1.1] tracking-tight mb-4 text-4xl sm:text-5xl md:text-[3rem] lg:text-[3.75rem] xl:text-[4rem]">
+          <span className="block text-muted-foreground/50 whitespace-nowrap">Paste a link,</span>
           <span
-            className="block text-[2.5rem] md:text-[3.5rem] text-glow-lime"
+            className="block text-glow-lime whitespace-nowrap"
             style={{ color: "#BEFF3E" }}
           >
             Download it.
@@ -56,44 +55,13 @@ export function LandingHero({
         </h1>
 
         {/* Subtitle */}
-        <p className="stagger-3 text-sm text-muted-foreground max-w-sm mb-8 leading-relaxed">
+        <p className="stagger-3 text-xs sm:text-sm text-muted-foreground max-w-sm mb-8 leading-relaxed no-word-break">
           YouTube, TikTok, Instagram, Facebook, X, Threads — grab the video,
           pick the quality. No account. No drama. No ads.
         </p>
 
-        {/* Tab switcher */}
-        <div className="stagger-3 flex mb-5">
-          <div className="flex gap-1 p-1 rounded-xl border border-border bg-(--surface-2)">
-            <button
-              onClick={() => { onTabChange("single"); if (showResult && isPlaylist) onReset() }}
-              className={cn(
-                "tab-btn px-4 py-1.5 rounded-lg text-sm font-semibold transition-all",
-                activeTab === "single"
-                  ? "active bg-(--surface-3) text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              Single Video
-            </button>
-            <button
-              onClick={() => { onTabChange("playlist"); if (showResult && !isPlaylist) onReset() }}
-              className={cn(
-                "tab-btn px-4 py-1.5 rounded-lg text-sm font-semibold transition-all flex items-center gap-1.5",
-                activeTab === "playlist"
-                  ? "active bg-(--surface-3) text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <svg viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5 shrink-0">
-                <path d="M2.5 4h11a.5.5 0 010 1h-11a.5.5 0 010-1zM2.5 7.5h11a.5.5 0 010 1h-11a.5.5 0 010-1zM2.5 11h7a.5.5 0 010 1h-7a.5.5 0 010-1z" />
-              </svg>
-              Playlist
-            </button>
-          </div>
-        </div>
-
-        {/* URL Input */}
-        <div className="stagger-4">
+        {/* URL Input — width aligned with heading "Download it." */}
+        <div className="stagger-4 w-full max-w-[18rem]">
           <UrlInput
             url={url}
             state={state}
@@ -107,7 +75,7 @@ export function LandingHero({
         {/* Playlist mode hint */}
         {activeTab === "playlist" && !showResult && (
           <div
-            className="mt-4 slide-up flex items-start gap-2.5 px-3.5 py-3 rounded-xl border text-xs"
+            className="mt-4 slide-up flex items-start gap-2.5 px-3.5 py-3 rounded-xl border text-[11px] no-word-break"
             style={{ background: "rgba(190,255,62,0.04)", borderColor: "rgba(190,255,62,0.14)" }}
           >
             <svg
