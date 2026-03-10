@@ -267,9 +267,9 @@ export function VideoResult({ info, url, videoId: serverVideoId, className }: Pr
     >
       <div>
         <h3 className="text-sm font-semibold leading-snug line-clamp-2 text-foreground no-word-break">
-          {info.title}
+          {info.title || "—"}
         </h3>
-        <p className="mt-1 text-xs text-muted-foreground truncate">{info.author}</p>
+        <p className="mt-1 text-xs text-muted-foreground truncate">{info.author ?? "—"}</p>
       </div>
 
       <div className="flex flex-wrap gap-x-3 gap-y-1">

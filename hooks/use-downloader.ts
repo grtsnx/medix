@@ -102,6 +102,24 @@ const SASSY_ERRORS: Record<string, string> = {
   invalid: "That's not a URL. That's just... words. Paste a real link.",
 }
 
+function normalizeVideoInfo(v: unknown): VideoInfo | null {
+  if (!v || typeof v !== "object") return null
+  const o = v as Record<string, unknown>
+  return {
+    title: String(o.title ?? "").trim() || "Video",
+    author: String(o.author ?? o.uploader ?? "").trim() || "—",
+    duration: String(o.duration ?? "").trim() || "—",
+    thumbnail: String(o.thumbnail ?? "").trim() || "https://placehold.co/1280x720?text=Video",
+    views: String(o.views ?? "").trim() || "—",
+    likes: String(o.likes ?? "").trim() || "—",
+    platform: (o.platform as Platform) ?? "unknown",
+    formats: Array.isArray(o.formats) ? (o.formats as FormatOption[]) : [],
+    isPlaylist: Boolean(o.isPlaylist),
+    playlistCount: typeof o.playlistCount === "number" ? o.playlistCount : undefined,
+    playlistTitle: typeof o.playlistTitle === "string" ? o.playlistTitle : undefined,
+  }
+}
+
 export function useDownloader() {
   const [url, setUrl] = useState("")
   const [state, setState] = useState<DownloaderState>("idle")
@@ -173,9 +191,13 @@ export function useDownloader() {
         hasVideo: !!data.video,
       })
 
-      setVideoInfo(data.video)
+      const normalized = normalizeVideoInfo(data.video)
+      if (!normalized) {
+        throw new Error("Invalid video info from server")
+      }
+      setVideoInfo(normalized)
       if (data.playlist) setPlaylistItems(data.playlist)
-      if (data.video?.formats?.length) setSelectedFormat(data.video.formats[0].id)
+      if (normalized.formats?.length) setSelectedFormat(normalized.formats[0].id)
       setResolvedUrl(resolved)
       setVideoId(ytId)
       setState("ready")

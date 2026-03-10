@@ -80,8 +80,8 @@ function mapToVideoInfo(raw, platform, resolvedUrl) {
   const isPlaylist = raw._type === "playlist" || Array.isArray(raw.entries)
   const entry = isPlaylist && raw.entries?.length ? raw.entries[0] : raw
   return {
-    title: entry?.title ?? raw.title ?? "Unknown",
-    author: entry?.uploader ?? entry?.channel ?? raw.uploader ?? raw.channel ?? "—",
+    title: String(entry?.title ?? raw.title ?? "Video").trim() || "Video",
+    author: String(entry?.uploader ?? entry?.channel ?? raw.uploader ?? raw.channel ?? "—").trim() || "—",
     duration: formatDuration(entry?.duration ?? raw.duration),
     thumbnail: thumbnail || "https://placehold.co/1280x720/0f0f0f/BEFF3E?text=Video&font=montserrat",
     views: formatCount(entry?.view_count ?? raw.view_count),

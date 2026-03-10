@@ -151,8 +151,8 @@ function mapYtDlpToVideoInfo(raw: YtDlpJson, platform: string, resolvedUrl: stri
   const entry = isPlaylist && raw.entries?.length ? raw.entries[0] : raw
 
   return {
-    title: entry?.title ?? raw.title ?? "Unknown",
-    author: entry?.uploader ?? entry?.channel ?? raw.uploader ?? raw.channel ?? "—",
+    title: (entry?.title ?? raw.title ?? "Video").toString().trim() || "Video",
+    author: (entry?.uploader ?? entry?.channel ?? raw.uploader ?? raw.channel ?? "—").toString().trim() || "—",
     duration: formatDuration(entry?.duration ?? raw.duration),
     thumbnail: thumbnail || "https://placehold.co/1280x720/0f0f0f/BEFF3E?text=Video&font=montserrat",
     views: formatCount(entry?.view_count ?? raw.view_count),
