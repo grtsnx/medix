@@ -49,8 +49,7 @@ function Navbar() {
   )
 }
 
-function Footer({ hidden }: { hidden?: boolean }) {
-  if (hidden) return null
+function Footer() {
   return (
     <footer className="relative z-10 mt-16 pb-12 animate-fade-in delay-560">
       <div className="px-6 md:px-12 lg:px-16 xl:px-24 flex flex-col sm:flex-row items-center justify-between gap-3">
@@ -168,7 +167,7 @@ export default function Page() {
         </div>
       </main>
 
-      <Footer hidden={showResult && !!videoInfo} />
+      <Footer />
     </div>
   )
 }

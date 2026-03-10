@@ -34,21 +34,19 @@ export function LandingHero({
       <div className={showResult ? "max-w-xl" : "max-w-2xl"}>
 
         {/* ── Eyebrow badge ── */}
-        {!showResult && (
-          <div className="animate-fade-up delay-0 mb-6 inline-flex items-center gap-2">
-            <span
-              className="inline-flex items-center gap-2 text-xs font-medium border rounded-full px-3.5 py-1.5"
-              style={{
-                borderColor: "var(--cobalt-border)",
-                background: "var(--cobalt-dim)",
-                color: "var(--cobalt)",
-              }}
-            >
-              <span className="text-[10px]">✦</span>
-              Free forever · No account needed · No drama
-            </span>
-          </div>
-        )}
+        <div className="animate-fade-up delay-0 mb-6 inline-flex items-center gap-2">
+          <span
+            className="inline-flex items-center gap-2 text-xs font-medium border rounded-full px-3.5 py-1.5"
+            style={{
+              borderColor: "var(--cobalt-border)",
+              background: "var(--cobalt-dim)",
+              color: "var(--cobalt)",
+            }}
+          >
+            <span className="text-[10px]">✦</span>
+            Free forever · No account needed · No drama
+          </span>
+        </div>
 
         {/* ── Display headline ── */}
         <h1
@@ -68,13 +66,11 @@ export function LandingHero({
         </h1>
 
         {/* ── Subtitle ── */}
-        {!showResult && (
-          <p className="animate-fade-up delay-160 text-base text-muted-foreground mb-8 max-w-md leading-relaxed no-word-break">
-            <span className="text-foreground/70">
-              your screen recorder can finally retire
-            </span>
-          </p>
-        )}
+        <p className="animate-fade-up delay-160 text-base text-muted-foreground mb-8 max-w-md leading-relaxed no-word-break">
+          <span className="text-foreground/70">
+            your screen recorder can finally retire
+          </span>
+        </p>
 
         {/* ── URL Input ── */}
         <div className={[
@@ -93,14 +89,12 @@ export function LandingHero({
         </div>
 
         {/* ── Platform hint ── */}
-        {!showResult && (
-          <p className="animate-fade-up delay-320 mt-5 text-xs text-muted-foreground font-mono">
-            {PLATFORMS.join(" · ")}
-          </p>
-        )}
+        <p className="animate-fade-up delay-320 mt-5 text-xs text-muted-foreground font-mono">
+          {PLATFORMS.join(" · ")}
+        </p>
 
         {/* ── Playlist hint ── */}
-        {isPlaylist && !showResult && (
+        {isPlaylist && (
           <div
             className="mt-4 animate-fade-in flex items-start gap-2.5 px-3.5 py-3 rounded-xl border text-xs no-word-break"
             style={{

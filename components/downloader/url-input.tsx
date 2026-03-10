@@ -167,16 +167,6 @@ export function UrlInput({ url, state, platform, error, onChange, onSubmit, clas
         </div>
       )}
 
-      {/* Progress bar */}
-      {state === "fetching" && (
-        <div className="h-0.5 w-full rounded-full overflow-hidden animate-fade-in" style={{ background: "var(--surface-2)" }}>
-          <div
-            className="h-full rounded-full progress-animate"
-            style={{ background: "var(--cobalt)" }}
-          />
-        </div>
-      )}
-
       {/* Error message */}
       {error && (
         <p className="flex items-start gap-2 text-sm px-1 animate-fade-up" style={{ color: "#D24F4F" }}>
