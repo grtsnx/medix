@@ -1,15 +1,12 @@
 "use client"
 
 import { UrlInput } from "@/components/downloader/url-input"
+import type { DownloaderState, Platform } from "@/hooks/use-downloader"
 
-/**
- * Landing-only hero section. Do not use on other routes.
- * Contains: eyebrow, headline, subtitle, URL input.
- */
 interface LandingHeroProps {
   url: string
-  state: "idle" | "loading" | "ready" | "downloading" | "done" | "error"
-  platform: string | null
+  state: DownloaderState
+  platform: Platform
   error: string | null
   activeTab: "single" | "playlist"
   showResult: boolean
@@ -20,48 +17,75 @@ interface LandingHeroProps {
   onReset: () => void
 }
 
+const PLATFORMS = ["YouTube", "TikTok", "Instagram", "Facebook", "X", "Threads"]
+
 export function LandingHero({
   url,
   state,
   platform,
   error,
-  activeTab,
   showResult,
   isPlaylist,
   onUrlChange,
   onFetchVideoInfo,
-  onTabChange,
-  onReset,
 }: LandingHeroProps) {
   return (
-    <section className="px-8 pt-4 pb-8 md:px-16 md:pt-6 md:pb-12 lg:px-24">
-      <div className="max-w-xl">
+    <section className="relative z-10 px-6 pt-6 pb-12 md:px-12 lg:px-16 xl:px-24">
+      <div className={showResult ? "max-w-xl" : "max-w-2xl"}>
 
-        {/* Eyebrow — brand */}
-        <div className="stagger-1 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold mb-6 lime-badge w-fit">
-          <span className="w-1.5 h-1.5 rounded-full shrink-0 pulse-ring" style={{ background: "#BEFF3E" }} />
-          vidload
-        </div>
+        {/* ── Eyebrow badge ── */}
+        {!showResult && (
+          <div className="animate-fade-up delay-0 mb-6 inline-flex items-center gap-2">
+            <span
+              className="inline-flex items-center gap-2 text-xs font-medium border rounded-full px-3.5 py-1.5"
+              style={{
+                borderColor: "var(--cobalt-border)",
+                background: "var(--cobalt-dim)",
+                color: "var(--cobalt)",
+              }}
+            >
+              <span className="text-[10px]">✦</span>
+              Free forever · No account needed · No drama
+            </span>
+          </div>
+        )}
 
-        {/* Heading — larger, fits without wrapping */}
-        <h1 className="stagger-2 font-extrabold leading-[1.1] tracking-tight mb-4 text-4xl sm:text-5xl md:text-[3rem] lg:text-[3.75rem] xl:text-[4rem]">
-          <span className="block text-muted-foreground/50 whitespace-nowrap">Paste a link,</span>
-          <span
-            className="block text-glow-lime whitespace-nowrap"
-            style={{ color: "#BEFF3E" }}
-          >
-            Download it.
+        {/* ── Display headline ── */}
+        <h1
+          className={[
+            "font-(family-name:--font-instrument) leading-[1.05] tracking-tight mb-5 no-word-break",
+            showResult
+              ? "text-4xl md:text-5xl lg:text-[3.25rem] animate-fade-up delay-0"
+              : "text-5xl sm:text-6xl md:text-7xl animate-fade-up delay-80",
+          ].join(" ")}
+        >
+          <span className="block text-muted-foreground" style={{ opacity: 0.55 }}>
+            Download anything.
+          </span>
+          <span className="block text-foreground">
+            Tell everyone it&apos;s{" "}
+            <span style={{ color: "var(--cobalt)", fontWeight: 800 }}>
+              research.
+            </span>
           </span>
         </h1>
 
-        {/* Subtitle */}
-        <p className="stagger-3 text-xs sm:text-sm text-muted-foreground max-w-sm mb-8 leading-relaxed no-word-break">
-          YouTube, TikTok, Instagram, Facebook, X, Threads — grab the video,
-          pick the quality. No account. No drama. No ads.
-        </p>
+        {/* ── Subtitle ── */}
+        {!showResult && (
+          <p className="animate-fade-up delay-160 text-base text-muted-foreground mb-8 max-w-md leading-relaxed no-word-break">
+            Paste a link. Get the file.{" "}
+            <span className="text-foreground/70">
+              Your screen recorder can finally retire.
+            </span>
+          </p>
+        )}
 
-        {/* URL Input — width aligned with heading "Download it." */}
-        <div className="stagger-4 w-full max-w-[18rem]">
+        {/* ── URL Input ── */}
+        <div className={[
+          showResult ? "animate-fade-up delay-0" : "animate-fade-up delay-240",
+          "w-full",
+          showResult ? "max-w-lg" : "max-w-xl",
+        ].join(" ")}>
           <UrlInput
             url={url}
             state={state}
@@ -72,25 +96,39 @@ export function LandingHero({
           />
         </div>
 
-        {/* Playlist mode hint */}
-        {activeTab === "playlist" && !showResult && (
+        {/* ── Platform hint ── */}
+        {!showResult && (
+          <p className="animate-fade-up delay-320 mt-5 text-xs text-muted-foreground font-mono">
+            {PLATFORMS.join(" · ")}
+          </p>
+        )}
+
+        {/* ── Playlist hint ── */}
+        {isPlaylist && !showResult && (
           <div
-            className="mt-4 slide-up flex items-start gap-2.5 px-3.5 py-3 rounded-xl border text-[11px] no-word-break"
-            style={{ background: "rgba(190,255,62,0.04)", borderColor: "rgba(190,255,62,0.14)" }}
+            className="mt-4 animate-fade-in flex items-start gap-2.5 px-3.5 py-3 rounded-xl border text-xs no-word-break"
+            style={{
+              background: "var(--cobalt-dim)",
+              borderColor: "var(--cobalt-border)",
+              color: "var(--cobalt)",
+            }}
           >
             <svg
-              viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.5}
+              viewBox="0 0 20 20"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.5}
               className="w-4 h-4 shrink-0 mt-0.5"
-              style={{ color: "#BEFF3E", opacity: 0.65 }}
             >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"
+              />
             </svg>
-            <span style={{ color: "rgba(190,255,62,0.75)" }}>
+            <span>
               Paste a YouTube playlist URL —{" "}
-              <code
-                className="font-mono text-xs px-1 py-0.5 rounded"
-                style={{ background: "rgba(190,255,62,0.08)" }}
-              >
+              <code className="font-mono bg-white/40 px-1 py-0.5 rounded text-[11px]">
                 youtube.com/playlist?list=…
               </code>
             </span>
