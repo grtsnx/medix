@@ -9,7 +9,7 @@ import { LandingHero } from "@/components/landing/landing-hero"
 
 function Navbar() {
   return (
-    <header className="relative z-10 flex items-center justify-between px-6 py-5 md:px-12 animate-fade-in">
+    <header className="relative z-10 flex items-center justify-between px-6 py-5 md:px-12 lg:px-16 xl:px-24 animate-fade-in">
       <div className="flex items-center gap-2.5">
         <div
           className="w-8 h-8 rounded-xl flex items-center justify-center"
@@ -51,14 +51,9 @@ function Navbar() {
 
 function Footer({ hidden }: { hidden?: boolean }) {
   if (hidden) return null
-  const platforms = ["YouTube", "TikTok", "Instagram", "Facebook", "X", "Threads"]
   return (
     <footer className="relative z-10 mt-16 pb-12 animate-fade-in delay-560">
-      <div className="divider mx-6 md:mx-12 mb-8" />
-      <div className="px-6 md:px-12 flex flex-col sm:flex-row items-center justify-between gap-3">
-        <p className="text-xs text-muted-foreground font-mono">
-          {platforms.join(" · ")}
-        </p>
+      <div className="px-6 md:px-12 lg:px-16 xl:px-24 flex flex-col sm:flex-row items-center justify-between gap-3">
         <p className="text-xs text-muted-foreground">
           Made with caffeine and poor decisions. © {new Date().getFullYear()} Medixoad.
         </p>
@@ -82,12 +77,12 @@ export default function Page() {
     <div className="min-h-screen bg-background flex flex-col">
       <Navbar />
 
-      <main className="flex-1 relative z-10">
+      <main className="flex flex-1 flex-col min-h-0 relative z-10">
         <div
           className={
             showResult && videoInfo
               ? "min-h-full lg:grid lg:grid-cols-2 lg:gap-x-8 xl:gap-x-12"
-              : "flex flex-col"
+              : "flex flex-1 flex-col min-h-0"
           }
         >
           {/* ── Hero / Input column ── */}
@@ -95,7 +90,7 @@ export default function Page() {
             className={
               showResult && videoInfo
                 ? "flex flex-col justify-center lg:min-h-[calc(100vh-80px)]"
-                : "flex-1 flex flex-col justify-center"
+                : "flex flex-1 flex-col justify-center min-h-0"
             }
           >
             <LandingHero

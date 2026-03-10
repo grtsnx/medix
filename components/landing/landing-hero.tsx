@@ -30,7 +30,7 @@ export function LandingHero({
   onFetchVideoInfo,
 }: LandingHeroProps) {
   return (
-    <section className="relative z-10 px-6 pt-6 pb-12 md:px-12 lg:px-16 xl:px-24">
+    <section className="relative z-10 flex flex-1 flex-col justify-center px-6 pt-6 pb-12 md:px-12 lg:px-16 xl:px-24">
       <div className={showResult ? "max-w-xl" : "max-w-2xl"}>
 
         {/* ── Eyebrow badge ── */}
@@ -60,22 +60,18 @@ export function LandingHero({
           ].join(" ")}
         >
           <span className="block text-muted-foreground" style={{ opacity: 0.55 }}>
-            Download anything.
+            paste it,
           </span>
-          <span className="block text-foreground">
-            Tell everyone it&apos;s{" "}
-            <span style={{ color: "var(--cobalt)", fontWeight: 800 }}>
-              research.
-            </span>
+          <span className="block" style={{ color: "var(--cobalt)", fontWeight: 800 }}>
+            download it.
           </span>
         </h1>
 
         {/* ── Subtitle ── */}
         {!showResult && (
           <p className="animate-fade-up delay-160 text-base text-muted-foreground mb-8 max-w-md leading-relaxed no-word-break">
-            Paste a link. Get the file.{" "}
             <span className="text-foreground/70">
-              Your screen recorder can finally retire.
+              your screen recorder can finally retire
             </span>
           </p>
         )}
@@ -84,7 +80,7 @@ export function LandingHero({
         <div className={[
           showResult ? "animate-fade-up delay-0" : "animate-fade-up delay-240",
           "w-full",
-          showResult ? "max-w-lg" : "max-w-xl",
+          showResult ? "max-w-lg" : "max-w-md",
         ].join(" ")}>
           <UrlInput
             url={url}
