@@ -5,6 +5,26 @@ import Image from "next/image"
 import { cn } from "@/lib/utils"
 import type { VideoInfo } from "@/hooks/use-downloader"
 
+declare global {
+  interface YTPlayerOptions {
+    videoId?: string
+    playerVars?: Record<string, number | string>
+    events?: { onReady?: (event: { target: YTPlayer }) => void }
+  }
+  interface YTPlayer {
+    destroy: () => void
+    unMute: () => void
+    setVolume: (vol: number) => void
+  }
+  interface YT {
+    Player: new (el: HTMLElement, opts: YTPlayerOptions) => YTPlayer
+  }
+  interface Window {
+    YT?: YT
+    onYouTubeIframeAPIReady?: () => void
+  }
+}
+
 type PreviewState = "idle" | "playing" | "ended"
 
 type Props = {
@@ -26,6 +46,7 @@ const PLATFORM_LABEL: Record<string, string> = {
 }
 
 const PREVIEW_SECS = 5
+const FADE_OUT_SECS = 1.2
 
 function getYouTubeId(url: string): string | null {
   try {
@@ -75,8 +96,11 @@ export function VideoResult({ info, url, videoId: serverVideoId, className }: Pr
   const [preview, setPreview] = useState<PreviewState>("idle")
   const [timeLeft, setTimeLeft] = useState(PREVIEW_SECS)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const playerRef = useRef<YTPlayer | null>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const fadeRef = useRef<ReturnType<typeof requestAnimationFrame> | null>(null)
 
-  // Prefer server-provided video ID (from resolved URL); fallback to client-side parse from url
+  // Prefer server-provided video ID
   const ytId = (info.platform === "youtube" || info.platform === "youtube-playlist")
     ? (serverVideoId ?? getYouTubeId(url))
     : null
@@ -84,16 +108,133 @@ export function VideoResult({ info, url, videoId: serverVideoId, className }: Pr
   const platformLabel = PLATFORM_LABEL[info.platform] ?? info.platform
 
   function startPreview() {
-    console.log("[VideoResult] startPreview", { ytId, url: url.slice(0, 80), serverVideoId: serverVideoId ?? "(none)" })
     setPreview("playing")
     setTimeLeft(PREVIEW_SECS)
   }
 
-  function stopPreview() {
+  function cleanupPlayer() {
     if (timerRef.current) clearInterval(timerRef.current)
+    timerRef.current = null
+    if (fadeRef.current != null) {
+      cancelAnimationFrame(fadeRef.current)
+      fadeRef.current = null
+    }
+    if (playerRef.current) {
+      try {
+        playerRef.current.destroy()
+      } catch {
+        // ignore
+      }
+      playerRef.current = null
+    }
+    if (containerRef.current) {
+      try {
+        containerRef.current.replaceChildren()
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  function stopPreview() {
+    cleanupPlayer()
     setPreview("idle")
     setTimeLeft(PREVIEW_SECS)
   }
+
+  // Load YouTube IFrame API and create player when preview starts with ytId
+  useEffect(() => {
+    if (preview !== "playing" || !ytId || !containerRef.current) return
+
+    const mountPlayer = () => {
+      if (!containerRef.current || playerRef.current) return
+      playerRef.current = new window.YT!.Player(containerRef.current, {
+        videoId: ytId,
+        playerVars: {
+          autoplay: 1,
+          mute: 1,
+          start: 0,
+          end: PREVIEW_SECS,
+          controls: 0,
+          rel: 0,
+          modestbranding: 1,
+          playsinline: 1,
+        },
+        events: {
+          onReady: (event) => {
+            const player = event.target
+            setTimeout(() => {
+              try {
+                player.unMute()
+                player.setVolume(100)
+              } catch {
+                // ignore
+              }
+            }, 400)
+          },
+        },
+      })
+    }
+
+    if (typeof window !== "undefined" && window.YT?.Player) {
+      mountPlayer()
+      return
+    }
+
+    const tag = document.createElement("script")
+    tag.src = "https://www.youtube.com/iframe_api"
+    const firstScript = document.getElementsByTagName("script")[0]
+    firstScript?.parentNode?.insertBefore(tag, firstScript)
+
+    const prev = window.onYouTubeIframeAPIReady
+    window.onYouTubeIframeAPIReady = () => {
+      if (prev) prev()
+      mountPlayer()
+    }
+
+    return () => {
+      if (playerRef.current) {
+        try {
+          playerRef.current.destroy()
+        } catch {
+          // ignore
+        }
+        playerRef.current = null
+      }
+      if (containerRef.current) {
+        try {
+          containerRef.current.replaceChildren()
+        } catch {
+          // ignore
+        }
+      }
+    }
+  }, [preview, ytId])
+
+  // Fade out volume in the last FADE_OUT_SECS
+  useEffect(() => {
+    if (preview !== "playing" || timeLeft > FADE_OUT_SECS || !playerRef.current) return
+
+    const startVolume = 100
+    const startTime = performance.now()
+    const durationMs = FADE_OUT_SECS * 1000
+
+    const tick = () => {
+      const elapsed = performance.now() - startTime
+      const t = Math.min(elapsed / durationMs, 1)
+      const vol = Math.round(startVolume * (1 - t))
+      try {
+        playerRef.current?.setVolume(vol)
+      } catch {
+        // ignore
+      }
+      if (t < 1) fadeRef.current = requestAnimationFrame(tick)
+    }
+    fadeRef.current = requestAnimationFrame(tick)
+    return () => {
+      if (fadeRef.current != null) cancelAnimationFrame(fadeRef.current)
+    }
+  }, [preview, timeLeft])
 
   useEffect(() => {
     if (preview !== "playing") return
@@ -101,6 +242,8 @@ export function VideoResult({ info, url, videoId: serverVideoId, className }: Pr
       setTimeLeft((t) => {
         if (t <= 1) {
           clearInterval(timerRef.current!)
+          timerRef.current = null
+          cleanupPlayer()
           setPreview("ended")
           return PREVIEW_SECS
         }
@@ -169,14 +312,12 @@ export function VideoResult({ info, url, videoId: serverVideoId, className }: Pr
             {/* Video area */}
             <div className="relative w-full aspect-video bg-black overflow-hidden">
 
-              {/* YouTube iframe */}
+              {/* YouTube player (API: sound on, fades out at end) */}
               {preview === "playing" && ytId && (
-                <iframe
-                  key="yt-embed"
-                  src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&start=0&end=${PREVIEW_SECS}&controls=0&rel=0&modestbranding=1&playsinline=1`}
-                  className="absolute inset-0 w-full h-full"
-                  allow="autoplay; encrypted-media"
-                  title="Video preview"
+                <div
+                  ref={containerRef}
+                  className="absolute inset-0 w-full h-full [&>iframe]:w-full [&>iframe]:h-full"
+                  aria-label="Video preview"
                 />
               )}
 

@@ -1,15 +1,17 @@
 /**
  * /api/video-info
  *
- * Resolves short URLs (vm.tiktok.com, youtu.be, fb.watch, t.co) server-side
- * before processing, so platform detection and thumbnails are always correct.
+ * Resolves short URLs, then fetches real metadata via yt-dlp when available.
+ * Falls back to mock data if yt-dlp is not installed or the request fails.
  *
- * Currently returns realistic mock data. To go live: swap mockVideoInfo()
- * with a real yt-dlp subprocess or HTTP wrapper call.
+ * On Vercel: set YT_DLP_API to your download worker URL; the worker's /video-info is used for real metadata.
  */
 
 import { NextRequest, NextResponse } from "next/server"
+import { spawn } from "node:child_process"
 import type { VideoInfo, PlaylistItem } from "@/hooks/use-downloader"
+
+const YT_DLP_API = process.env.YT_DLP_API?.replace(/\/$/, "")
 
 // ─── URL resolution ────────────────────────────────────────────────────────────
 
@@ -78,6 +80,91 @@ function extractYouTubeVideoId(url: string): string | null {
   return null
 }
 
+// ─── Real metadata via yt-dlp ──────────────────────────────────────────────────
+
+function formatDuration(seconds: number | null | undefined): string {
+  if (seconds == null || !Number.isFinite(seconds)) return "—"
+  const h = Math.floor(seconds / 3600)
+  const m = Math.floor((seconds % 3600) / 60)
+  const s = Math.floor(seconds % 60)
+  if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
+  return `${m}:${String(s).padStart(2, "0")}`
+}
+
+function formatCount(n: number | null | undefined): string {
+  if (n == null || !Number.isFinite(n)) return "—"
+  if (n >= 1_000_000_000) return (n / 1_000_000_000).toFixed(1).replace(/\.0$/, "") + "B"
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\.0$/, "") + "M"
+  if (n >= 1_000) return (n / 1_000).toFixed(1).replace(/\.0$/, "") + "K"
+  return String(n)
+}
+
+type YtDlpJson = {
+  title?: string
+  uploader?: string
+  channel?: string
+  duration?: number | null
+  view_count?: number | null
+  like_count?: number | null
+  thumbnail?: string
+  _type?: string
+  entries?: YtDlpJson[]
+}
+
+function runYtDlpJson(url: string): Promise<YtDlpJson | null> {
+  return new Promise((resolve) => {
+    const proc = spawn("yt-dlp", ["-j", "--no-download", "--no-warnings", "--no-playlist", url], {
+      stdio: ["ignore", "pipe", "pipe"],
+    })
+    let out = ""
+    proc.stdout?.on("data", (chunk: Buffer) => { out += chunk.toString() })
+    proc.stderr?.on("data", () => {})
+    proc.on("error", (err) => {
+      if (process.env.NODE_ENV === "development") console.warn("[video-info] yt-dlp spawn error", err.message)
+      resolve(null)
+    })
+    proc.on("close", (code, signal) => {
+      if (code !== 0 && process.env.NODE_ENV === "development") {
+        console.warn("[video-info] yt-dlp exit", { code, signal })
+      }
+      try {
+        const firstLine = out.trim().split("\n")[0]
+        resolve(firstLine ? (JSON.parse(firstLine) as YtDlpJson) : null)
+      } catch {
+        resolve(null)
+      }
+    })
+  })
+}
+
+function mapYtDlpToVideoInfo(raw: YtDlpJson, platform: string, resolvedUrl: string): VideoInfo {
+  const isYT = platform === "youtube" || platform === "youtube-playlist"
+  const formats = isYT ? FULL_FORMATS : SHORT_FORMATS
+
+  let thumbnail = raw.thumbnail ?? ""
+  if (isYT && !thumbnail) {
+    const videoId = extractYouTubeVideoId(resolvedUrl)
+    thumbnail = videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : ""
+  }
+
+  const isPlaylist = raw._type === "playlist" || Array.isArray(raw.entries)
+  const entry = isPlaylist && raw.entries?.length ? raw.entries[0] : raw
+
+  return {
+    title: entry?.title ?? raw.title ?? "Unknown",
+    author: entry?.uploader ?? entry?.channel ?? raw.uploader ?? raw.channel ?? "—",
+    duration: formatDuration(entry?.duration ?? raw.duration),
+    thumbnail: thumbnail || "https://placehold.co/1280x720/0f0f0f/BEFF3E?text=Video&font=montserrat",
+    views: formatCount(entry?.view_count ?? raw.view_count),
+    likes: formatCount(entry?.like_count ?? raw.like_count),
+    platform: platform as VideoInfo["platform"],
+    formats,
+    ...(isPlaylist && raw.entries?.length
+      ? { isPlaylist: true, playlistCount: raw.entries.length, playlistTitle: raw.title }
+      : {}),
+  }
+}
+
 // ─── Mock helpers ──────────────────────────────────────────────────────────────
 
 const FALLBACK_THUMBNAILS: Record<string, string> = {
@@ -106,7 +193,6 @@ const SHORT_FORMATS = [
 function mockVideoInfo(platform: string, originalUrl: string): VideoInfo {
   const isYT = platform === "youtube" || platform === "youtube-playlist"
 
-  // For YouTube, derive thumbnail from actual video ID so it matches the link
   let thumbnail: string
   if (isYT) {
     const videoId = extractYouTubeVideoId(originalUrl)
@@ -117,73 +203,16 @@ function mockVideoInfo(platform: string, originalUrl: string): VideoInfo {
     thumbnail = FALLBACK_THUMBNAILS[platform] ?? "https://placehold.co/1280x720/0f0f0f/BEFF3E?text=Video&font=montserrat"
   }
 
-  const base: VideoInfo = {
-    title: "Amazing Video Title — Download Now",
-    author: "@creator",
-    duration: "10:32",
+  return {
+    title: "Video",
+    author: "—",
+    duration: "—",
     thumbnail,
-    views: "4.2M",
-    likes: "183K",
+    views: "—",
+    likes: "—",
     platform: platform as VideoInfo["platform"],
     formats: isYT ? FULL_FORMATS : SHORT_FORMATS,
   }
-
-  const overrides: Record<string, Partial<VideoInfo>> = {
-    youtube: {
-      title: "How the Universe Works — A Stunning Documentary",
-      author: "Kurzgesagt – In a Nutshell",
-      duration: "14:22",
-      views: "28.1M",
-      likes: "1.4M",
-    },
-    "youtube-playlist": {
-      title: "Lo-fi Beats to Study/Relax To 🎵 [4K]",
-      author: "ChillHop Music",
-      duration: "—",
-      views: "—",
-      likes: "—",
-      isPlaylist: true,
-      playlistCount: 47,
-      playlistTitle: "Lo-fi Beats to Study/Relax To",
-    },
-    tiktok: {
-      title: "Wait for it… 😂 #viral #fyp",
-      author: "@trendingcreator",
-      duration: "0:58",
-      views: "12.8M",
-      likes: "2.1M",
-    },
-    instagram: {
-      title: "Sunset timelapse from the mountains 🌄",
-      author: "@naturephotography",
-      duration: "1:02",
-      views: "880K",
-      likes: "94K",
-    },
-    facebook: {
-      title: "Epic Skateboarding Compilation 2024",
-      author: "SkateFeed",
-      duration: "8:14",
-      views: "3.5M",
-      likes: "210K",
-    },
-    twitter: {
-      title: "This is incredible — watch till the end",
-      author: "@viral_clips",
-      duration: "2:11",
-      views: "6.7M",
-      likes: "345K",
-    },
-    threads: {
-      title: "POV: You just discovered something amazing",
-      author: "@threads_official",
-      duration: "0:44",
-      views: "520K",
-      likes: "48K",
-    },
-  }
-
-  return { ...base, ...(overrides[platform] ?? {}), thumbnail }
 }
 
 function mockPlaylistItems(): PlaylistItem[] {
@@ -225,7 +254,6 @@ export async function POST(req: NextRequest) {
     const resolvedUrl = await resolveUrl(url)
 
     // If the resolved URL is different, re-derive platform from it
-    // (e.g. vm.tiktok.com → tiktok.com/video/...)
     if (resolvedUrl !== url) {
       try {
         const rHost = new URL(resolvedUrl).hostname.toLowerCase().replace(/^www\./, "").replace(/^m\./, "")
@@ -240,23 +268,56 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    await new Promise((r) => setTimeout(r, 700)) // simulate processing
+    const finalUrl = resolvedUrl || url
 
-    const video = mockVideoInfo(platform, resolvedUrl || url)
+    // ─── Vercel: get real metadata from download worker ───
+    if (YT_DLP_API) {
+      try {
+        const workerRes = await fetch(`${YT_DLP_API}/video-info`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: finalUrl, platform }),
+        })
+        if (workerRes.ok) {
+          const data = await workerRes.json()
+          const videoId = (platform === "youtube" || platform === "youtube-playlist")
+            ? extractYouTubeVideoId(finalUrl)
+            : null
+          return NextResponse.json({
+            video: data.video,
+            playlist: data.playlist,
+            resolvedUrl: finalUrl,
+            videoId,
+          })
+        }
+      } catch (err) {
+        console.warn("[video-info] worker fetch failed, falling back", err)
+      }
+    }
+
+    // ─── Local / VPS: run yt-dlp -j for real metadata ───
+    const ytDlpMeta = await runYtDlpJson(finalUrl)
+    let video: VideoInfo
+    if (ytDlpMeta?.title) {
+      video = mapYtDlpToVideoInfo(ytDlpMeta, platform, finalUrl)
+      console.log("[video-info] real metadata", { title: video.title.slice(0, 40) })
+    } else {
+      video = mockVideoInfo(platform, finalUrl)
+      console.log("[video-info] mock metadata (yt-dlp not available or failed)")
+    }
+
     const playlist = platform === "youtube-playlist" ? mockPlaylistItems() : undefined
 
     const videoId = (platform === "youtube" || platform === "youtube-playlist")
-      ? extractYouTubeVideoId(resolvedUrl || url)
+      ? extractYouTubeVideoId(finalUrl)
       : null
 
-    const payload = { video, playlist, resolvedUrl: resolvedUrl || url, videoId }
-    console.log("[video-info] success", {
-      url,
-      resolvedUrl: resolvedUrl || url,
-      platform,
+    return NextResponse.json({
+      video,
+      playlist,
+      resolvedUrl: finalUrl,
       videoId,
     })
-    return NextResponse.json(payload)
   } catch (err) {
     console.error("[video-info] error", err)
     return NextResponse.json({ error: "Failed to fetch video info" }, { status: 500 })

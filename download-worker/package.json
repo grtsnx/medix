@@ -1,0 +1,10 @@
+{
+  "name": "medixoad-download-worker",
+  "version": "1.0.0",
+  "description": "yt-dlp download worker for use with Vercel deployment",
+  "type": "module",
+  "main": "server.js",
+  "dependencies": {
+    "express": "^4.21.0"
+  }
+}

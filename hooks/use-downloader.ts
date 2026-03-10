@@ -202,13 +202,20 @@ export function useDownloader() {
       const res = await fetch("/api/download", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: resolvedUrl || url, formatId: selectedFormat }),
+        body: JSON.stringify({
+          url: resolvedUrl || url,
+          formatId: selectedFormat,
+          filename: `${videoInfo.title.slice(0, 40).replace(/[<>:"/\\|?*]/g, "_")}.${videoInfo.formats.find((f) => f.id === selectedFormat)?.ext ?? "mp4"}`,
+        }),
       })
 
       if (res.ok && res.body) {
         const blob = await res.blob()
         const fmt = videoInfo.formats.find((f) => f.id === selectedFormat)
-        const filename = `${videoInfo.title.slice(0, 40)}.${fmt?.ext ?? "mp4"}`
+        const ext = fmt?.ext ?? "mp4"
+        const contentDisposition = res.headers.get("Content-Disposition")
+        const filenameMatch = contentDisposition?.match(/filename="?([^";\n]+)"?/)
+        const filename = filenameMatch ? filenameMatch[1].trim() : `${videoInfo.title.slice(0, 40)}.${ext}`
         const a = document.createElement("a")
         a.href = URL.createObjectURL(blob)
         a.download = filename

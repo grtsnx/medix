@@ -1,15 +1,20 @@
 /**
  * /api/download
  *
- * Streams the download from yt-dlp (must be installed on the server).
- * Usage: yt-dlp must be on PATH (e.g. install via: pip install yt-dlp, or brew install yt-dlp).
+ * Two modes:
+ * 1. Vercel (serverless): Set YT_DLP_API to your download worker URL. This route proxies
+ *    the request to the worker and streams the response back.
+ * 2. Local / VPS: If YT_DLP_API is not set, runs yt-dlp as a subprocess (requires yt-dlp on PATH).
  *
- * For serverless (Vercel etc.) yt-dlp is not available – use an external download API or run this on a VPS.
+ * For Vercel: deploy a small download worker (see download-worker/) to Railway, Fly.io, or a VPS,
+ * then set YT_DLP_API=https://your-worker.railway.app (no trailing slash).
  */
 
 import { NextRequest, NextResponse } from "next/server"
 import { spawn } from "node:child_process"
 import { Readable } from "node:stream"
+
+const YT_DLP_API = process.env.YT_DLP_API?.replace(/\/$/, "") // base URL, no trailing slash
 
 export async function POST(req: NextRequest) {
   try {
@@ -25,12 +30,42 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing url" }, { status: 400 })
     }
 
-    // yt-dlp format: use "best" for best single file (works for Shorts, regular videos, etc.)
-    // Our mock formatIds (f137+f140 etc.) are not real yt-dlp codes; "best" gives a working file
-    const format = "best"
-    const safeFilename = sanitizeFilename(requestedFilename ?? "video") + ".mp4"
+    const base = sanitizeFilename(requestedFilename ?? "video")
+    const safeFilename = /\.(mp4|webm|mkv|mp3|m4a)$/i.test(base) ? base : base + ".mp4"
 
-    console.log("[download] starting yt-dlp", { url: url.slice(0, 80), format })
+    // ─── Vercel / serverless: proxy to external download worker ───
+    if (YT_DLP_API) {
+      console.log("[download] proxying to YT_DLP_API", { url: url.slice(0, 60) })
+      const workerRes = await fetch(`${YT_DLP_API}/download`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url, filename: safeFilename }),
+      })
+
+      if (!workerRes.ok) {
+        const err = await workerRes.json().catch(() => ({}))
+        console.error("[download] worker error", workerRes.status, err)
+        return NextResponse.json(
+          { error: err.error || "Download service failed" },
+          { status: workerRes.status }
+        )
+      }
+
+      const contentType = workerRes.headers.get("Content-Type") || "video/mp4"
+      const contentDisposition = workerRes.headers.get("Content-Disposition") || `attachment; filename="${safeFilename}"`
+
+      return new Response(workerRes.body, {
+        status: 200,
+        headers: {
+          "Content-Type": contentType,
+          "Content-Disposition": contentDisposition,
+        },
+      })
+    }
+
+    // ─── Local / VPS: run yt-dlp directly ───
+    const format = "best"
+    console.log("[download] local yt-dlp", { url: url.slice(0, 80), format })
 
     const proc = spawn(
       "yt-dlp",
@@ -38,35 +73,29 @@ export async function POST(req: NextRequest) {
         "-f",
         format,
         "-o",
-        "-", // stdout
+        "-",
         "--no-part",
         "--no-warnings",
         "--no-colors",
-        "--newline",
         url,
       ],
-      {
-        stdio: ["ignore", "pipe", "pipe"],
-      }
+      { stdio: ["ignore", "pipe", "pipe"] }
     )
 
     const { stdout, stderr } = proc
 
     stderr?.on("data", (chunk: Buffer) => {
-      // Progress and logs go to stderr; log only in dev to avoid flooding
-      if (process.env.NODE_ENV === "development") {
-        process.stderr.write(chunk)
+      if (process.env.NODE_ENV === "development") process.stderr.write(chunk)
+    })
+
+    proc.on("error", (err: NodeJS.ErrnoException) => {
+      console.error("[download] yt-dlp spawn error", err)
+      if (err.code === "ENOENT") {
+        console.error("[download] yt-dlp not found. Install it (e.g. brew install yt-dlp) or set YT_DLP_API for Vercel.")
       }
     })
 
-    proc.on("error", (err) => {
-      console.error("[download] yt-dlp spawn error", err)
-    })
-
-    // Node Readable (stdout) -> Web ReadableStream for Response
-    const webStream = stdout
-      ? Readable.toWeb(stdout as Readable)
-      : new ReadableStream()
+    const webStream = stdout ? Readable.toWeb(stdout as Readable) : new ReadableStream()
 
     return new Response(webStream as ReadableStream<Uint8Array>, {
       status: 200,
