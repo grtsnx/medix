@@ -111,10 +111,14 @@ export function useDownloader() {
   const [selectedFormat, setSelectedFormat] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [downloadProgress, setDownloadProgress] = useState(0)
+  const [resolvedUrl, setResolvedUrl] = useState<string | null>(null)
+  const [videoId, setVideoId] = useState<string | null>(null)
 
   const handleUrlChange = useCallback((value: string) => {
     setUrl(value)
     setVideoInfo(null)
+    setResolvedUrl(null)
+    setVideoId(null)
     setError(null)
     setState("idle")
     if (isValidUrl(value)) {
@@ -153,16 +157,32 @@ export function useDownloader() {
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
-        throw new Error(data.error || "Couldn't fetch video info. The URL might be private or region-locked.")
+        const msg = data.error || "Couldn't fetch video info. The URL might be private or region-locked."
+        console.error("[useDownloader] fetchVideoInfo HTTP error", { status: res.status, url, data })
+        throw new Error(msg)
       }
 
       const data = await res.json()
+      const resolved = data.resolvedUrl ?? url
+      const ytId = data.videoId ?? null
+
+      console.log("[useDownloader] fetchVideoInfo success", {
+        url,
+        resolvedUrl: resolved,
+        videoId: ytId,
+        hasVideo: !!data.video,
+      })
+
       setVideoInfo(data.video)
       if (data.playlist) setPlaylistItems(data.playlist)
       if (data.video?.formats?.length) setSelectedFormat(data.video.formats[0].id)
+      setResolvedUrl(resolved)
+      setVideoId(ytId)
       setState("ready")
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went sideways. Try again?")
+      const message = err instanceof Error ? err.message : "Something went sideways. Try again?"
+      console.error("[useDownloader] fetchVideoInfo error", { url, err, message })
+      setError(message)
       setState("error")
     }
   }, [url])
@@ -182,7 +202,7 @@ export function useDownloader() {
       const res = await fetch("/api/download", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url, formatId: selectedFormat }),
+        body: JSON.stringify({ url: resolvedUrl || url, formatId: selectedFormat }),
       })
 
       if (res.ok && res.body) {
@@ -194,18 +214,27 @@ export function useDownloader() {
         a.download = filename
         a.click()
         URL.revokeObjectURL(a.href)
+        console.log("[useDownloader] download saved", { filename })
+      } else {
+        const data = await res.json().catch(() => ({}))
+        const errMsg = data.error || "Download failed. Try again."
+        console.error("[useDownloader] download failed", { status: res.status, url: resolvedUrl || url, data })
+        setError(errMsg)
       }
-    } catch {
-      // Demo mode — API doesn't actually stream yet
+    } catch (err) {
+      console.error("[useDownloader] triggerDownload error", err)
+      setError("Download failed. Try again.")
     }
 
     setState("done")
-  }, [selectedFormat, videoInfo, url])
+  }, [selectedFormat, videoInfo, url, resolvedUrl])
 
   const reset = useCallback(() => {
     setUrl("")
     setVideoInfo(null)
     setPlaylistItems([])
+    setResolvedUrl(null)
+    setVideoId(null)
     setSelectedFormat(null)
     setError(null)
     setState("idle")
@@ -215,6 +244,8 @@ export function useDownloader() {
 
   return {
     url,
+    resolvedUrl,
+    videoId,
     state,
     platform,
     videoInfo,

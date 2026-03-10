@@ -10,6 +10,8 @@ type PreviewState = "idle" | "playing" | "ended"
 type Props = {
   info: VideoInfo
   url: string
+  /** Server-provided YouTube video ID – use this for preview when set so it matches thumbnail */
+  videoId?: string | null
   className?: string
 }
 
@@ -28,9 +30,13 @@ const PREVIEW_SECS = 5
 function getYouTubeId(url: string): string | null {
   try {
     const u = new URL(url)
-    const host = u.hostname.replace(/^www\./, "")
-    if (host === "youtube.com") return u.searchParams.get("v")
-    if (host === "youtu.be") return u.pathname.slice(1).split("?")[0]
+    const host = u.hostname.toLowerCase().replace(/^www\./, "").replace(/^m\./, "")
+    if (host === "youtube.com") {
+      const shortsMatch = u.pathname.match(/^\/shorts\/([^/?]+)/)
+      if (shortsMatch) return shortsMatch[1]
+      return u.searchParams.get("v")
+    }
+    if (host === "youtu.be") return u.pathname.slice(1).split("/")[0].split("?")[0] || null
     return null
   } catch {
     return null
@@ -65,18 +71,20 @@ const ListIcon = () => (
   </svg>
 )
 
-export function VideoResult({ info, url, className }: Props) {
+export function VideoResult({ info, url, videoId: serverVideoId, className }: Props) {
   const [preview, setPreview] = useState<PreviewState>("idle")
   const [timeLeft, setTimeLeft] = useState(PREVIEW_SECS)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
+  // Prefer server-provided video ID (from resolved URL); fallback to client-side parse from url
   const ytId = (info.platform === "youtube" || info.platform === "youtube-playlist")
-    ? getYouTubeId(url)
+    ? (serverVideoId ?? getYouTubeId(url))
     : null
 
   const platformLabel = PLATFORM_LABEL[info.platform] ?? info.platform
 
   function startPreview() {
+    console.log("[VideoResult] startPreview", { ytId, url: url.slice(0, 80), serverVideoId: serverVideoId ?? "(none)" })
     setPreview("playing")
     setTimeLeft(PREVIEW_SECS)
   }

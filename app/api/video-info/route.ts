@@ -30,21 +30,25 @@ async function resolveUrl(url: string): Promise<string> {
   try {
     const parsed = new URL(url)
     const host = parsed.hostname.toLowerCase().replace(/^www\./, "")
-    if (!SHORT_HOSTS.has(host)) return url
-
+    if (!SHORT_HOSTS.has(host)) {
+      console.log("[video-info] resolveUrl: not a short host, using as-is", { host, url })
+      return url
+    }
+    console.log("[video-info] resolveUrl: following redirects", { host, url })
     const res = await fetch(url, {
       method: "GET",
       redirect: "follow",
       signal: AbortSignal.timeout(5000),
       headers: {
-        // Mimic a real browser so redirect chains don't bail early
         "User-Agent":
           "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
       },
     })
-    // res.url is the final URL after all redirects
-    return res.url || url
-  } catch {
+    const final = res.url || url
+    if (final !== url) console.log("[video-info] resolveUrl: resolved", { from: url, to: final })
+    return final
+  } catch (err) {
+    console.error("[video-info] resolveUrl failed, using original URL", { url, err })
     return url
   }
 }
@@ -62,8 +66,10 @@ function extractYouTubeVideoId(url: string): string | null {
       return id || null
     }
 
-    // youtube.com/watch?v=VIDEO_ID
+    // youtube.com/shorts/VIDEO_ID or m.youtube.com/shorts/VIDEO_ID
     if (host === "youtube.com" || host === "m.youtube.com") {
+      const shortsMatch = u.pathname.match(/^\/shorts\/([^/?]+)/)
+      if (shortsMatch) return shortsMatch[1]
       return u.searchParams.get("v") || null
     }
   } catch {
@@ -211,6 +217,7 @@ export async function POST(req: NextRequest) {
     let { url, platform } = body as { url: string; platform: string }
 
     if (!url || !platform) {
+      console.error("[video-info] validation failed: missing url or platform", { url: !!url, platform: !!platform })
       return NextResponse.json({ error: "Missing url or platform" }, { status: 400 })
     }
 
@@ -238,9 +245,20 @@ export async function POST(req: NextRequest) {
     const video = mockVideoInfo(platform, resolvedUrl || url)
     const playlist = platform === "youtube-playlist" ? mockPlaylistItems() : undefined
 
-    return NextResponse.json({ video, playlist })
+    const videoId = (platform === "youtube" || platform === "youtube-playlist")
+      ? extractYouTubeVideoId(resolvedUrl || url)
+      : null
+
+    const payload = { video, playlist, resolvedUrl: resolvedUrl || url, videoId }
+    console.log("[video-info] success", {
+      url,
+      resolvedUrl: resolvedUrl || url,
+      platform,
+      videoId,
+    })
+    return NextResponse.json(payload)
   } catch (err) {
-    console.error("[video-info]", err)
+    console.error("[video-info] error", err)
     return NextResponse.json({ error: "Failed to fetch video info" }, { status: 500 })
   }
 }

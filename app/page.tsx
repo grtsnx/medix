@@ -64,7 +64,7 @@ function Footer() {
 export default function Page() {
   const {
     url, state, platform, videoInfo, playlistItems,
-    selectedFormat, error, downloadProgress,
+    selectedFormat, error, downloadProgress, resolvedUrl, videoId,
     handleUrlChange, fetchVideoInfo, setSelectedFormat, triggerDownload, reset,
   } = useDownloader()
 
@@ -111,7 +111,7 @@ export default function Page() {
           {showResult && videoInfo && (
             <section className="px-6 pb-12 md:px-12 lg:flex lg:flex-col lg:justify-center lg:px-8 xl:px-12 min-w-0 animate-slide-right">
               <div className="max-w-lg space-y-4 lg:max-w-md min-w-0">
-                <VideoResult info={videoInfo} url={url} />
+                <VideoResult info={videoInfo} url={resolvedUrl ?? url} videoId={videoId} />
 
                 {isPlaylist && playlistItems.length > 0 ? (
                   <div
